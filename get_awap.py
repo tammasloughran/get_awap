@@ -1,7 +1,7 @@
 """get_awap.py downloads AWAP data from the BoM and converts it to netcdf.
-Usage: python get_awap.py yyymmdd-YYYMMDD VAR
+Usage: python get_awap.py yyyy-YYYY VAR
 
-yyymmdd-YYYMMDD - is the period to download
+yyyy-YYYY - is the period to download
 
 VAR - is the variable to download. Use either tmax, tmin or rain.
 
@@ -13,6 +13,7 @@ import numpy as np
 import os
 import pandas
 from netCDF4 import Dataset
+import datetime as dt
 
 # Get args
 args = sys.argv
@@ -20,14 +21,14 @@ period = args[1]
 getvar = args[2]
 
 # Manage dates
-if not len(period)==17:
-    print("Formatting of dates is incorrect. Dates format should be yyyymmdd-YYYYMMDD")
+try:
+    start_year = period[:4]
+    end_year = period[5:]
+except:
+    print("Formatting of dates is incorrect. Dates format should be yyyy-YYYY")
     sys.exit
-start_date = period[:8]
-end_date = period[9:]
-start_year = int(start_date[:4])
-end_year = int(end_date[:4])
-dates = pandas.date_range(start_date, end_date)
+dates = pandas.date_range(start_year, end_year)
+nums = [(dates[i]-dt.datetime(1899,01,01)).days for i in range(len(dates))]
 
 # Setup url strings
 site = 'http://www.bom.gov.au/web03/ncc/www/awap/'
@@ -50,8 +51,7 @@ for idate in dates:
         os.system('uncompress '+filename)
 
 # Load .grid files
-if start_year==end_year: end_year = end_year+1
-for cyear in range(start_year, end_year):
+for cyear in range(start_year, end_year+1):
     iday = 0
     this_year = dates[dates.year==cyear]
     days_in_year = (dates.year==cyear).sum()
@@ -90,9 +90,30 @@ for cyear in range(start_year, end_year):
     ncdata.createDimension('lat',rows)
     ncdata.createDimension('lon',cols)
     otime = ncdata.createVariable('time','float',dimensions=('time'))
+    setattr(otime, 'standard_name', 'time')
+    setattr(otime, 'calendar', 'proleptic_gregorian')
+    setattr(otime, 'units', "day as %Y%m%d.%f")
     olat = ncdata.createVariable('lat','float',dimensions=('lat'))
+    setattr(olat, 'standard_name', 'latitude')
+    setattr(olat, 'long_name', 'Latitude')
+    setattr(olat, 'units', 'degrees_north')
+    setattr(olat, 'axis', 'Y')
     olon = ncdata.createVariable('lon','float',dimensions=('lon'))
+    setattr(olon, 'standard_name', 'longitude')
+    setattr(olon, 'long_name', 'Longitude')
+    setattr(olon, 'units', 'degrees_east')
+    setattr(olon, 'axis', 'X')
     odata = ncdata.createVariable(getvar,awap_data2.dtype,dimensions=('time','lat','lon'))
+    if getvar=='tmax':
+        setattr(odata, 'long_name', "Daily maximum temperature")
+        setattr(odata, 'units', 'deg C')
+    elif getvar=='tmin':
+        setattr(odata, 'long_name', "Dialy minimum temperature")
+        setattr(odata, 'units', 'deg C')
+    elif getvar=='rain':
+        setattr(odata, 'long_name', "Daily rainfall total")
+        setattr(odata, 'units', 'kg m-2 d-1')
+    setattr(odata, '_FillValue', -99.99)
     otime[:] = times
     olat[:] = lats
     olon[:] = lons[:-1]
