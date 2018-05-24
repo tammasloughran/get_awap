@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 """get_awap.py downloads AWAP data from the BoM and converts it to netcdf.
 Usage: python get_awap.py ddmmyyyy-DDMMYYYY VAR
 
